@@ -1,0 +1,3 @@
+[submodule "static/vis"]
+	path = static/vis
+	url = https://github.com/almende/vis.git
