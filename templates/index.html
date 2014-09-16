@@ -1,32 +1,68 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-  <title>Timeline basic demo</title>
+  <title>Catcierge Timeline</title>
+  <script src="static/jquery-1.11.1.min.js"></script>
   <script src="static/vis/dist/vis.js"></script>
   <link href="static/vis/dist/vis.css" rel="stylesheet" type="text/css" />
+  <script type="text/javascript">
+	Date.prototype.addHours = function(h)
+	{
+		this.setTime(this.getTime() + (h * 60 * 60 * 1000)); 
+		return this;
+	}
 
-  <style type="text/css">
-    body, html 
-    {
-      font-family: sans-serif;
-    }
-  </style>
+	Date.prototype.addDays = function(d)
+	{
+		this.setTime(this.getTime() + (d * 60 * 60 * 24 * 1000));
+		return this;
+	}
+
+  	$(function()
+  	{
+		var data = new vis.DataSet({});
+
+		var container = document.getElementById('visualization');
+		data.add([
+			{id: 1, content: 'item 1', start: '2013-04-20'},
+			{id: 2, content: 'item 2', start: '2013-04-14'},
+			{id: 3, content: 'item 3', start: '2013-04-18'},
+			{id: 4, content: 'item 4', start: '2013-04-16', end: '2013-04-19'},
+			{id: 5, content: 'item 5', start: '2013-04-25'},
+			{id: 6, content: 'item 6', start: '2013-04-27 19:00:01', end: '2013-04-27 19:00:02.1131'}
+		]);
+		var options = {};
+		var timeline = new vis.Timeline(container, data, options);
+
+		ws = new WebSocket('ws://higgs:8888/ws') 
+		ws.onopen = function(msg)
+		{
+		   console.log('Connection successfully opened');
+		};
+
+		ws.onmessage = function(msg)
+		{
+			m = JSON.parse(msg.data);
+			console.log("bla", m, timeline);
+			data.update(m);
+			start = new Date(m.start).addDays(-1);
+			end = new Date(m.start).addHours(2);
+			timeline.setWindow(start, end);
+		};
+
+		ws.onclose = function(msg)
+		{
+			// when connection close
+		}
+
+		ws.error = function(err)
+		{
+			console.log(err); //if occurred any error
+		}
+	});
+	</script>
 </head>
 <body>
-<div id="visualization"></div>
-
-<script type="text/javascript">
-  var container = document.getElementById('visualization');
-  var data = [
-    {id: 1, content: 'item 1', start: '2013-04-20'},
-    {id: 2, content: 'item 2', start: '2013-04-14'},
-    {id: 3, content: 'item 3', start: '2013-04-18'},
-    {id: 4, content: 'item 4', start: '2013-04-16', end: '2013-04-19'},
-    {id: 5, content: 'item 5', start: '2013-04-25'},
-    {id: 6, content: 'item 6', start: '2013-04-27'}
-  ];
-  var options = {};
-  var timeline = new vis.Timeline(container, data, options);
-</script>
+	<div id="visualization"></div>
 </body>
 </html>

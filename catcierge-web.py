@@ -1,9 +1,12 @@
 import tornado.ioloop
+from tornado.ioloop import IOLoop
 import tornado.web
 import tornado.websocket
 import tornado.template
 import tornado.httpserver
 import os
+import json
+from datetime import timedelta, datetime
 
 from tornado.options import define, options, parse_command_line
 
@@ -11,29 +14,48 @@ define("port", default=8888, help="Run server on the given port", type=int)
 
 clients = dict()
 
+ioloop = tornado.ioloop.IOLoop.instance()
+
 class IndexHandler(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	def get(self):
 		self.render('index.html')
 
+
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
-	def open(self, *args):
-		self.id = self.get_argument('Id')
-		self.stream.set_nodelay(True)
+
+	def send_event(self):
+		self.write_message(json.dumps({
+			'id': self.event_id,
+			'content': 'item %d' % self.event_id,
+			'start': str(datetime.today() + timedelta(days=self.event_id)),
+		}))
+
+		self.event_id += 1
+
+		ioloop.add_timeout(timedelta(seconds=5), self.send_event)
+
+	def open(self):
+		self.event_id = 7
+		self.id = self.request.headers['Sec-Websocket-Key']
 		clients[self.id] = {'id': self.id, 'object': self}
+		
+		print("CONNECTED %s with id: %s" % (self.request.remote_ip, id))
+		ioloop.add_timeout(timedelta(seconds=5), self.send_event)
 
 	def on_message(self, message):
-		print "Client %s received a message : %s" % (self.id, message)
+		print("%s: %s" % (self.id, message))
 
 	def on_close(self):
 		if self.id in clients:
 			del clients[self.id]
 
+
 class Application(tornado.web.Application):
 	def __init__(self):
 		handlers = [
 			(r'/', IndexHandler),
-			(r'/', WebSocketHandler),
+			(r'/ws', WebSocketHandler),
 		]
 
 		settings = dict(
@@ -43,6 +65,7 @@ class Application(tornado.web.Application):
 			)
 
 		tornado.web.Application.__init__(self, handlers, **settings)
+
 
 def main():
 	tornado.options.parse_command_line()
