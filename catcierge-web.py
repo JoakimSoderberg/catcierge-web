@@ -19,7 +19,7 @@ ioloop = tornado.ioloop.IOLoop.instance()
 class IndexHandler(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	def get(self):
-		self.render('index.html')
+		self.render('index.html', hostname=self.request.host)
 
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):

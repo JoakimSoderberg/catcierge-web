@@ -34,7 +34,7 @@
 		var options = {};
 		var timeline = new vis.Timeline(container, data, options);
 
-		ws = new WebSocket('ws://higgs:8888/ws') 
+		ws = new WebSocket('ws://{{ hostname }}/ws') 
 		ws.onopen = function(msg)
 		{
 		   console.log('Connection successfully opened');
