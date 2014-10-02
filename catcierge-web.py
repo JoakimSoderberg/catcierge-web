@@ -6,6 +6,7 @@ import tornado.template
 import tornado.httpserver
 import os
 import json
+import zmq
 from datetime import timedelta, datetime
 
 from tornado.options import define, options, parse_command_line
@@ -17,15 +18,30 @@ clients = dict()
 ioloop = tornado.ioloop.IOLoop.instance()
 
 class IndexHandler(tornado.web.RequestHandler):
+	"""
+	Web server.
+	"""
 	@tornado.web.asynchronous
 	def get(self):
 		self.render('index.html', hostname=self.request.host)
 
 
+class ZMQCatciergeSub(object):
+	"""
+	ZMQ Catcierge Subscriber.
+	"""
+	def __init__(self):
+		pass
+
+
 class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
+	"""
+	Websocket handler for pushing live events.
+	"""
 
 	def send_event(self):
-		self.write_message(json.dumps({
+		self.write_message(json.dumps(
+		{
 			'id': self.event_id,
 			'content': 'item %d' % self.event_id,
 			'start': str(datetime.today() + timedelta(days=self.event_id)),
