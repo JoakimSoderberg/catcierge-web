@@ -22,7 +22,7 @@ class IndexHandler(tornado.web.RequestHandler):
 		self.render('index.html', hostname=self.request.host)
 
 
-class WebSocketHandler(tornado.websocket.WebSocketHandler):
+class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 	def send_event(self):
 		self.write_message(json.dumps({
@@ -55,7 +55,7 @@ class Application(tornado.web.Application):
 	def __init__(self):
 		handlers = [
 			(r'/', IndexHandler),
-			(r'/ws', WebSocketHandler),
+			(r'/ws/live/events', LiveEventsWebSocketHandler),
 		]
 
 		settings = dict(

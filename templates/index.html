@@ -4,6 +4,7 @@
   <title>Catcierge Timeline</title>
   <script src="static/jquery-1.11.1.min.js"></script>
   <script src="static/vis/dist/vis.js"></script>
+  <script type="text/javascript" src="static/catcierge.js"></script>
   <link href="static/vis/dist/vis.css" rel="stylesheet" type="text/css" />
   <script type="text/javascript">
 	Date.prototype.addHours = function(h)
@@ -34,31 +35,7 @@
 		var options = {};
 		var timeline = new vis.Timeline(container, data, options);
 
-		ws = new WebSocket('ws://{{ hostname }}/ws') 
-		ws.onopen = function(msg)
-		{
-		   console.log('Connection successfully opened');
-		};
-
-		ws.onmessage = function(msg)
-		{
-			m = JSON.parse(msg.data);
-			console.log("bla", m, timeline);
-			data.update(m);
-			start = new Date(m.start).addDays(-1);
-			end = new Date(m.start).addHours(2);
-			timeline.setWindow(start, end);
-		};
-
-		ws.onclose = function(msg)
-		{
-			// when connection close
-		}
-
-		ws.error = function(err)
-		{
-			console.log(err); //if occurred any error
-		}
+		catcierge_events_updater("{{ hostname }}", timeline, data);
 	});
 	</script>
 </head>
