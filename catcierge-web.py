@@ -1,9 +1,9 @@
 import tornado.ioloop
-#from tornado.ioloop import IOLoop
 import tornado.web
 import tornado.websocket
 import tornado.template
 import tornado.httpserver
+from tornado.web import StaticFileHandler
 import os
 import json
 import zmq
@@ -19,11 +19,12 @@ from tornado.options import define, options, parse_command_line
 
 define("http_port", default=8888, help="Run web server on the given port", type=int)
 define("zmq_port", default=5556, help="The port the catciege ZMQ publisher is listening on", type=int)
-define("zmq_host", default="localhost", help="")
+define("zmq_host", default="localhost", help="The host the catcierge ZMQ publisher is listening on")
+define("zmq_transport", default="tcp", help="The ZMQ transport to use to connect to the catcierge publisher. Possible options: inproc, ipc, tcp, tpic, multicast")
+define("image_path", default=".", help="The path to the image root directory")
 
 clients = dict()
 
-#ioloop = tornado.ioloop.IOLoop.instance()
 sigint_handlers = []
 
 def sighandler(signum, frame):
@@ -45,7 +46,6 @@ class IndexHandler(tornado.web.RequestHandler):
 	@tornado.web.asynchronous
 	def get(self):
 		self.render('index.html', hostname=self.request.host)
-
 
 class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 	"""
@@ -85,10 +85,26 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 			self.zmq_stream.on_recv(self.zmq_on_recv)
 			self.zmq_sock.setsockopt(zmq.SUBSCRIBE, b"")
 
-			connect_str = "tcp://%s:%s" % ("192.168.0.204", "5556")
+			connect_str = "%s://%s:%d" % (options.zmq_transport, options.zmq_host, options.zmq_port)
 
 			logger.info("Connecting ZMQ socket: %s" % connect_str)
 			self.zmq_sock.connect(connect_str)
+
+	def simplify_json(self, msg):
+		"""
+		Gets rid of unused parts of the JSON that's there
+		because the catciege template system sucks.
+		"""
+		j = json.loads(msg)
+
+		if "matches" in j:
+			j["matches"] = j["matches"][:j["match_group_count"]]
+
+			for m in j["matches"]:
+				if "steps" in m:
+					m["steps"] = m["steps"][:m["step_count"]]
+
+		return json.dumps(j, indent=4)
 
 	def zmq_on_recv(self, msg):
 		"""
@@ -96,18 +112,20 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		passes them on to the Websocket connection.
 		"""
 		req_id = msg[0]
-		req_msg = msg[1]
+		req_msg = self.simplify_json(msg[1])
 
-		logger.info("ZMQ recv %s: %s" % (req_id, req_msg))
+		if (req_id == "match_group_done"):
+			logger.info("ZMQ recv %s: %s" % (req_id, req_msg))
 
-		self.send_catcierge_event(req_msg)
+			self.send_catcierge_event(req_msg)
+		else:
+			logger.info("ZMQ recv %s: %s", req_id, req_msg)
+			logger.info("DOING NOTHING")
 
 	def open(self):
 		"""
 		Websocket connection opened.
 		"""
-		#self.event_id = 7
-
 		self.id = self.request.headers['Sec-Websocket-Key']
 		clients[self.id] = {'id': self.id, 'object': self}
 
@@ -115,7 +133,6 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		self.zmq_connect()
 
 		logger.info("Websocket Client CONNECTED %s with id: %s" % (self.request.remote_ip, self.id))
-		#ioloop.add_timeout(timedelta(seconds=5), self.send_event)
 
 	def on_message(self, message):
 		"""
@@ -132,14 +149,16 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 class Application(tornado.web.Application):
 	def __init__(self):
+		print options.image_path
 		handlers = [
 			(r'/', IndexHandler),
 			(r'/ws/live/events', LiveEventsWebSocketHandler),
+			(r'/static/(.*)', StaticFileHandler, { 'path': os.path.join(os.path.dirname(__file__), 'static') }),
+			(r'/images/(.*)', StaticFileHandler, { 'path': options.image_path })
 		]
 
 		settings = dict(
 			template_path=os.path.join(os.path.dirname(__file__), 'templates'),
-			static_path=os.path.join(os.path.dirname(__file__), 'static'),
 			debug=True,
 			)
 
@@ -147,10 +166,13 @@ class Application(tornado.web.Application):
 
 
 def main():
-	tornado.options.parse_command_line()
-	http_server = tornado.httpserver.HTTPServer(Application())
-	http_server.listen(options.port)
-	tornado.ioloop.IOLoop.instance().start()
+	try:
+		tornado.options.parse_command_line()
+		http_server = tornado.httpserver.HTTPServer(Application())
+		http_server.listen(options.http_port)
+		tornado.ioloop.IOLoop.instance().start()
+	except Exception as ex:
+		logger.error("Error: %s" % ex)
 
 if __name__ == "__main__":
 	main()

@@ -4,6 +4,7 @@
   <title>Catcierge Timeline</title>
   <script src="static/jquery-1.11.1.min.js"></script>
   <script src="static/vis/dist/vis.js"></script>
+  <script src="static/js/handlebars-v2.0.0.js"></script>
   <script type="text/javascript" src="static/catcierge.js"></script>
   <link href="static/vis/dist/vis.css" rel="stylesheet" type="text/css" />
   <script type="text/javascript">
@@ -12,15 +13,6 @@
 		var data = new vis.DataSet({});
 
 		var container = document.getElementById('visualization');
-		/*
-		data.add([
-			{id: 1, content: 'item 1', start: '2013-04-20'},
-			{id: 2, content: 'item 2', start: '2013-04-14'},
-			{id: 3, content: 'item 3', start: '2013-04-18'},
-			{id: 4, content: 'item 4', start: '2013-04-16', end: '2013-04-19'},
-			{id: 5, content: 'item 5', start: '2013-04-25'},
-			{id: 6, content: 'item 6', start: '2013-04-27 19:00:01', end: '2013-04-27 19:00:02.1131'}
-		]);*/
 		var options = {};
 		var timeline = new vis.Timeline(container, data, options);
 
@@ -30,5 +22,6 @@
 </head>
 <body>
 	<div id="visualization"></div>
+	<div id="selected_event"></div>
 </body>
 </html>
