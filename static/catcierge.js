@@ -23,9 +23,13 @@ var catcierge_events_updater = function(hostname, timeline, data)
 	{
 		m = JSON.parse(msg.data);
 		console.log("bla", m, timeline);
+		
+		m.start = m.time;
+		m.content = m.description;
+
 		data.update(m);
-		start = new Date(m.start).addDays(-1.1);
-		end = new Date(m.start).addHours(2);
+		start = new Date(m.time).addDays(-1.1);
+		end = new Date(m.time).addHours(2);
 		timeline.setWindow(start, end);
 	};
 
