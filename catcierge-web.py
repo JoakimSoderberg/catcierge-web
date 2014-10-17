@@ -56,18 +56,6 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		if hasattr(self, "zmq_stream"):
 			self.zmq_stream.close()
 
-	def send_event(self):
-		self.write_message(json.dumps(
-		{
-			'id': self.event_id,
-			'content': 'item %d' % self.event_id,
-			'start': str(datetime.today() + timedelta(days=self.event_id)),
-		}))
-
-		self.event_id += 1
-
-		ioloop.add_timeout(timedelta(seconds=5), self.send_event)
-
 	def send_catcierge_event(self, msg):
 		"""
 		Sends a catcierge event over the websocket.
@@ -168,11 +156,13 @@ class Application(tornado.web.Application):
 def main():
 	try:
 		tornado.options.parse_command_line()
+
 		http_server = tornado.httpserver.HTTPServer(Application())
 		http_server.listen(options.http_port)
 		tornado.ioloop.IOLoop.instance().start()
 	except Exception as ex:
-		logger.error("Error: %s" % ex)
+		print("Error: %s" % ex)
+		exit(-1)
 
 if __name__ == "__main__":
 	main()

@@ -19,7 +19,13 @@ var catcierge_update_data = function(data)
 	$.get("static/mustache/selected.html", function(html)
 	{
 		template = Handlebars.compile(html)
+		// TODO: Augument data for handlebar template success -> success_class and such.
 		$("#selected_event").html(template(data));
+		$(".match").click(function(e)
+		{
+			console.log(this.id)
+			$("#" + this.id + " > .steps").toggleClass("hidden");
+		});
 	});
 }
 
