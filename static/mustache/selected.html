@@ -3,13 +3,13 @@
 
 <div id="matches" class="row">
 	{{#each matches}}
-	<div id="match{{@index}}" class="match col-md-3 col-xs-3">
+	<div id="match{{@index}}" class="match col-md-3 col-xs-4">
 		<div>
 			<p>
 			{{ description }}
 			</p>
 			<p>
-			<img style="max-width: 150px;" src="images/{{ ../id }}/{{ id }}/{{ filename }}" />
+			<img id="match{{@index}}_img" style="max-width: 250px;" src="images/{{ ../id }}/{{ id }}/{{ filename }}" />
 			</p>
 		</div>
 		<div class="steps hidden">
@@ -19,7 +19,7 @@
 					{{ description }}
 				</p>
 				<p>
-					<img style="max-width: 100px;" src="images/{{ ../../id }}/{{ ../id }}/steps/{{ filename }}" />
+					<img style="max-width: 150px;" src="images/{{ ../../id }}/{{ ../id }}/steps/{{ filename }}" />
 				</p>
 			</div>
 			{{/each}}

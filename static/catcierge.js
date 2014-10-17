@@ -18,12 +18,11 @@ var catcierge_update_data = function(data)
 
 	$.get("static/mustache/selected.html", function(html)
 	{
-		template = Handlebars.compile(html)
-		// TODO: Augument data for handlebar template success -> success_class and such.
+		template = Handlebars.compile(html);
+
 		$("#selected_event").html(template(data));
-		$(".match").click(function(e)
+		$(".match").click(function()
 		{
-			console.log(this.id)
 			$("#" + this.id + " > .steps").toggleClass("hidden");
 		});
 	});
@@ -49,13 +48,16 @@ var catcierge_events_updater = function(hostname, timeline, data)
 	{
 		m = JSON.parse(msg.data);
 		console.log("Got catcierge event", m, timeline);
+		m.status_class = m.success ? "success" : "danger";
+		m.success_str = m.success ? "OK" : "Fail";
 
 		var catcierge_event =
 		{
 			id: m.id,
 			start: m.time,
 			content: m.description,
-			catcierge: m
+			catcierge: m,
+			className: m.success ? "success" : "danger"
 		};
 
 		data.update(catcierge_event);
@@ -63,6 +65,7 @@ var catcierge_events_updater = function(hostname, timeline, data)
 		start = new Date(m.time).addHours(-2);
 		end = new Date(m.time).addHours(2);
 		timeline.setWindow(start, end);
+		timeline.select()
 	};
 
 	ws.onclose = function(msg)
