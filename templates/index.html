@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="viewport" content="width=1024, initial-scale=1">
 
 	<title>Catcierge Timeline</title>
 
@@ -30,10 +30,11 @@
 			var template = Handlebars.compile(html);
 			var options = 
 			{
-				//maxHeight: "300px",
-				minHeight: "200px",
+				maxHeight: "250px",
+				minHeight: "250px",
+				clickToUse: false,
 				width: "95%",
-				stack: true,
+				stack: false,
 				template: template
 			};
 			var timeline = new vis.Timeline(container, data, options);
@@ -51,14 +52,14 @@
 	<![endif]-->
 </head>
 <body>
-	<div>
+	<div class="page-header">
 	<p>
 		<h1>Catcierge</h1>
 	</p>
-	<p class="container">
+	<p>
 		<div class="center-block" id="visualization"></div>
-		<div id="selected_event"></div>
 	</p>
 	</div>
+	<div id="selected_event"></div>
 </body>
 </html>

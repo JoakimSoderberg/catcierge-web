@@ -1,27 +1,23 @@
-<div>{{ description }} </div>​
+<div>{{ description }}</div>
 <div>Time: {{ time }}</div>
 
-<div id="matches" class="row">
+<div id="matches" class="thumbnails">
 	{{#each matches}}
-	<div id="match{{@index}}" class="match col-md-3 col-xs-4">
-		<div>
-			<p>
-			{{ description }}
-			</p>
-			<p>
-			<img id="match{{@index}}_img" style="max-width: 250px;" src="images/{{ ../id }}/{{ id }}/{{ filename }}" />
-			</p>
+	<div id="match{{@index}}" class="thumbnail match col-md-3 col-xs-4" >
+		<img class="alert {{ ../status_class }}" id="match{{@index}}_img" style="max-width: 250px;" src="images/{{ ../id }}/{{ id }}/{{ filename }}" />
+		<div class="caption">
+			<h4>{{ description }}</h4>
 		</div>
-		<div class="steps hidden">
+		<div class="steps">
+			<ul class="list-group">
 			{{#each steps}}
-			<div>
-				<p>
-					{{ description }}
-				</p>
+			<li class="list-group-item">
 				<p>
 					<img style="max-width: 150px;" src="images/{{ ../../id }}/{{ ../id }}/steps/{{ filename }}" />
+					<h6>{{ description }}</h6>
 				</p>
-			</div>
+			</li>
+			</ul>
 			{{/each}}
 		</div>
 	</div>

@@ -48,8 +48,8 @@ var catcierge_events_updater = function(hostname, timeline, data)
 	{
 		m = JSON.parse(msg.data);
 		console.log("Got catcierge event", m, timeline);
-		m.status_class = m.success ? "success" : "danger";
-		m.success_str = m.success ? "OK" : "Fail";
+		m.status_class = m.match_group_success ? "alert-success" : "alert-danger";
+		m.success_str = m.match_group_success ? "OK" : "Fail";
 
 		var catcierge_event =
 		{
@@ -57,11 +57,10 @@ var catcierge_events_updater = function(hostname, timeline, data)
 			start: m.time,
 			content: m.description,
 			catcierge: m,
-			className: m.success ? "success" : "danger"
+			className: m.status_class
 		};
 
 		data.update(catcierge_event);
-		//start = new Date(m.time).addDays(-1.1);
 		start = new Date(m.time).addHours(-2);
 		end = new Date(m.time).addHours(2);
 		timeline.setWindow(start, end);
