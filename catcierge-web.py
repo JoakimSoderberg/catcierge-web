@@ -13,6 +13,7 @@ from datetime import timedelta, datetime
 import signal
 import sys
 import logging
+import rethinkdb as r
 logger = logging.getLogger('catcierge-web')
 
 from tornado.options import define, options, parse_command_line
@@ -22,9 +23,12 @@ define("zmq_port", default=5556, help="The port the catciege ZMQ publisher is li
 define("zmq_host", default="localhost", help="The host the catcierge ZMQ publisher is listening on")
 define("zmq_transport", default="tcp", help="The ZMQ transport to use to connect to the catcierge publisher. Possible options: inproc, ipc, tcp, tpic, multicast")
 define("image_path", default=".", help="The path to the image root directory")
+define("rethinkdb_host", default="localhost", help="The rethinkdb hostname")
+define("rethinkdb_port", default=28015, help="The rethinkdb port")
+define("rethinkdb_database", default="catcierge", help="Name of the rethinkdb database to use")
 
 clients = dict()
-
+	
 sigint_handlers = []
 
 def sighandler(signum, frame):
@@ -56,6 +60,9 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		if hasattr(self, "zmq_stream"):
 			self.zmq_stream.close()
 
+		if hasattr(self, "rdb"):
+			self.rdb.close()
+
 	def send_catcierge_event(self, msg):
 		"""
 		Sends a catcierge event over the websocket.
@@ -77,6 +84,18 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 			logger.info("Connecting ZMQ socket: %s" % connect_str)
 			self.zmq_sock.connect(connect_str)
+
+	def rethinkdb_connect(self):
+		"""
+		Connect to the RethinkDB server.
+		"""
+		if not hasattr(self, "rdb"):
+			try:
+				self.rdb = r.connect(host=options.rethinkdb_host,
+									port=options.rethinkdb_port,
+									db="catcierge")
+			except RqlDriverError as ex:
+				logger.error("Failed to connect to Rethinkdb: %s" % ex)
 
 	def simplify_json(self, msg):
 		"""
@@ -102,7 +121,8 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		req_id = msg[0]
 		req_msg = self.simplify_json(msg[1])
 
-		if (req_id == "match_group_done"):
+		# TODO: Enable setting IDs we listen for via command line...
+		if (req_id == "event"): # "match_group_done"):
 			logger.info("ZMQ recv %s: %s" % (req_id, req_msg))
 
 			self.send_catcierge_event(req_msg)
@@ -117,8 +137,9 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		self.id = self.request.headers['Sec-Websocket-Key']
 		clients[self.id] = {'id': self.id, 'object': self}
 
-		# Connect the ZMQ sub socket on the first client.
+		# Connect the ZMQ sub socket and Rethinkdb server on the first client.
 		self.zmq_connect()
+		self.rethinkdb_connect()
 
 		logger.info("Websocket Client CONNECTED %s with id: %s" % (self.request.remote_ip, self.id))
 
@@ -126,7 +147,20 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		"""
 		Websocket on message.
 		"""
-		logger.debug("WS %s: %s" % (self.id, message))
+		range = json.loads(message)
+		logger.info("WS %s: %s" % (self.id, json.dumps(range, indent=4)))
+
+		# TODO: Fix this query.
+		"""
+		events = r.db("catcierge").table("events").filter(
+			lambda event: event.during(
+							r.iso8601(range["start"]),
+							r.iso8601(range["end"]))
+			).run(self.rdb)
+
+		for doc in events:
+			print("%r " % doc)
+		"""
 
 	def on_close(self):
 		"""
