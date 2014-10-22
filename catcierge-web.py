@@ -67,6 +67,7 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		"""
 		Sends a catcierge event over the websocket.
 		"""
+		# TODO: Enable sending a non-live event here (so the timeline doesn't focus on it)
 		self.write_message(msg)
 
 	def zmq_connect(self):
@@ -151,16 +152,18 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		logger.info("WS %s: %s" % (self.id, json.dumps(range, indent=4)))
 
 		# TODO: Fix this query.
+		events = r.db("catcierge").table("events").run(self.rdb)
 		"""
-		events = r.db("catcierge").table("events").filter(
+		events = r.db("catcierge").table("events").run(self.rdb).filter(
 			lambda event: event.during(
 							r.iso8601(range["start"]),
 							r.iso8601(range["end"]))
 			).run(self.rdb)
+		"""
 
 		for doc in events:
-			print("%r " % doc)
-		"""
+			self.send_catcierge_event(doc)
+
 
 	def on_close(self):
 		"""
