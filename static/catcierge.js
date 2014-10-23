@@ -46,24 +46,51 @@ var catcierge_events_updater = function(hostname, timeline, data)
 
 	ws.onopen = function(msg)
 	{
-		console.log("Connection successfully opened");
+		console.log("Websocket Connection successfully opened");
 
-		// Send the initial range.
-		range = timeline.getWindow();
-		ws.send(JSON.stringify(
+		send_time_range = function(range)
+		{
+			// TODO: Only send this new range if the old one was smaller.
+			ws.send(JSON.stringify(
 			{
 				start: range.start.toISOString(),
-				end: range.end.toISOString() 
+				end: range.end.toISOString()
 			}))
+		};
 
-		// Update on range change.
+		// Get events for the initial time range.
+		range = timeline.getWindow();
+		send_time_range(range);
+
+		// BUGFIX! The below is a fix in visjs for the "rangechanged"
+		// event firing as if it was "rangchange" when zooming.
+		// Solve this by using a timer to figure out when a zoom
+		// has stopped and keep that as a flag.
+		//
+		// If we don't do this we would keep spamming the webserver
+		// with requests for events in the zoom range we are.
+		var is_still_zooming = true;
+		on_zooming = function()
+		{
+			clearTimeout($.data(this, 'timer'));
+			$.data(this, 'timer', setTimeout(function()
+			{
+				is_still_zooming = false;
+			}, 250));
+		};
+
+		timeline.on("mousewheel", on_zooming);
+		timeline.on("DOMMouseScroll", on_zooming);
+		timeline.on("pinch", on_zooming);
+
+		// Update events on range change.
 		timeline.on("rangechanged", function(p)
 		{
-			ws.send(JSON.stringify(
-				{
-					start: p.start.toISOString(),
-					end: p.end.toISOString() 
-				}))
+			if (!is_still_zooming)
+			{
+				send_time_range(p);
+				is_still_zooming = true;
+			}
 		});
 	};
 
@@ -82,21 +109,29 @@ var catcierge_events_updater = function(hostname, timeline, data)
 		var catcierge_event =
 		{
 			id: m.id,
-			start: m.timestamp,
+			start: m.start,
 			content: m.description,
 			catcierge: m,
 			className: m.status_class
 		};
 
 		data.update(catcierge_event);
-		start = new Date(m.timestamp).addHours(-2);
-		end = new Date(m.timestamp).addHours(2);
-		timeline.setWindow(start, end);
-		//timeline.select()
+
+		if (m.live)
+		{
+			start = new Date(m.start).addHours(-2);
+			end = new Date(m.start).addHours(2);
+
+			timeline.setWindow(start, end);
+		}
 	};
 
 	ws.onclose = function(msg)
 	{
+		timeline.off("rangechanged");
+		timeline.off("mousewheel");
+		timeline.off("DOMMouseScroll");
+		timeline.off("pinch");
 	};
 
 	ws.error = function(err)

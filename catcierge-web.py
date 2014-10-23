@@ -112,24 +112,37 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 				if "steps" in m:
 					m["steps"] = m["steps"][:m["step_count"]]
 
-		return json.dumps(j, indent=4)
+		return j
 
 	def zmq_on_recv(self, msg):
 		"""
 		Receives ZMQ subscription messages from Catcierge and
 		passes them on to the Websocket connection.
 		"""
-		req_id = msg[0]
+		req_topic = msg[0]
 		req_msg = self.simplify_json(msg[1])
+		req_msg["live"] = True  # This is so that the JavaScript knows if we should zoom in on this.
+		req_msg_json = json.dumps(req_msg, indent=4)
+
+		#logger.info("ZMQ recv %s: %s" % (req_topic, req_msg_json))
 
 		# TODO: Enable setting IDs we listen for via command line...
-		if (req_id == "event"): # "match_group_done"):
-			logger.info("ZMQ recv %s: %s" % (req_id, req_msg))
+		if (req_topic == "event"):
 
-			self.send_catcierge_event(req_msg)
+			# Send to browser clients.
+			logger.info("Sending to websocket clients...")
+			self.send_catcierge_event(req_msg_json)
+
+			# Save in database.
+			logger.info("Sending to database...")
+
+			# Add timestamps in a format RethinkDB understands.
+			del req_msg["live"]
+			req_msg["timestamp"] = r.iso8601(req_msg["start"])
+			req_msg["timestamp_end"] = r.iso8601(req_msg["end"])
+			r.db("catcierge").table("events").insert(req_msg).run(self.rdb)
 		else:
-			logger.info("ZMQ recv %s: %s", req_id, req_msg)
-			logger.info("DOING NOTHING")
+			logger.info("DOING NOTHING, not listening to topic %s" % req_topic)
 
 	def open(self):
 		"""
@@ -151,18 +164,20 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		range = json.loads(message)
 		logger.info("WS %s: %s" % (self.id, json.dumps(range, indent=4)))
 
-		# TODO: Fix this query.
-		events = r.db("catcierge").table("events").run(self.rdb)
-		"""
-		events = r.db("catcierge").table("events").run(self.rdb).filter(
-			lambda event: event.during(
-							r.iso8601(range["start"]),
-							r.iso8601(range["end"]))
+		events = r.db("catcierge").table("events").filter(
+				r.row["timestamp"].during(
+					r.iso8601(range["start"]),
+					r.iso8601(range["end"]))
 			).run(self.rdb)
-		"""
 
 		for doc in events:
-			self.send_catcierge_event(doc)
+			# Delete these stupid date things we have the same info in start/end
+			# so that we can turn the document into JSON.
+			del doc["timestamp"]
+			del doc["timestamp_end"]
+			jdoc = json.dumps(doc, indent=4)
+			print("%s" % jdoc)
+			self.send_catcierge_event(jdoc)
 
 
 	def on_close(self):
