@@ -11,7 +11,7 @@ Date.prototype.addDays = function(d)
 	return this;
 }
 
-var catcierge_update_data = function(data)
+var catcierge_update_selected_data = function(data)
 {
 	if (!data)
 		return;
@@ -41,7 +41,9 @@ var catcierge_events_updater = function(hostname, timeline, data)
 	{
 		selected_item = data.get(properties.items[0]);
 		console.log(properties, timeline, selected_item);
-		catcierge_update_data(selected_item.catcierge);
+
+		if (selected_item)
+		catcierge_update_selected_data(selected_item.catcierge);
 	});
 
 	ws.onopen = function(msg)
@@ -96,38 +98,67 @@ var catcierge_events_updater = function(hostname, timeline, data)
 
 	ws.onmessage = function(msg)
 	{
+		//
+		// Incoming Websocket message.
+		//
 		m = JSON.parse(msg.data);
 		console.log("Got catcierge event", m, timeline);
-		m.status_class = m.match_group_success ? "alert-success" : "alert-danger";
-		m.success_str = m.match_group_success ? "OK" : "Fail";
 
-		for (var i = 0; i < m.matches.length; i++)
+		if (m.type == "day")
 		{
-			m.matches[i].status_class = m.matches[i].success ? "alert-success" : "alert-danger";
+			// Day aggregate event.
+
+			// TODO: Find and hide all events except day ones!
+
+			var catcierge_event =
+			{
+				id: m.start,
+				start: m.start,
+				end: m.end,
+				content: m.description,
+				catcierge: m,
+				className: "alert-info",
+				template: "day"
+			};
+
+			data.update(catcierge_event);
 		}
-
-		var catcierge_event =
+		else
 		{
-			id: m.id,
-			start: m.start,
-			content: m.description,
-			catcierge: m,
-			className: m.status_class
-		};
+			// Normal event.
+			m.status_class = m.match_group_success ? "alert-success" : "alert-danger";
+			m.success_str = m.match_group_success ? "OK" : "Fail";
 
-		data.update(catcierge_event);
+			for (var i = 0; i < m.matches.length; i++)
+			{
+				m.matches[i].status_class = m.matches[i].success ? "alert-success" : "alert-danger";
+			}
 
-		if (m.live)
-		{
-			start = new Date(m.start).addHours(-2);
-			end = new Date(m.start).addHours(2);
+			var catcierge_event =
+			{
+				id: m.id,
+				start: m.start,
+				content: m.description,
+				catcierge: m,
+				className: m.status_class,
+				template: "item"
+			};
 
-			timeline.setWindow(start, end);
+			data.update(catcierge_event);
+
+			if (m.live)
+			{
+				start = new Date(m.start).addHours(-2);
+				end = new Date(m.start).addHours(2);
+
+				timeline.setWindow(start, end);
+			}
 		}
 	};
 
 	ws.onclose = function(msg)
 	{
+		// TODO: Don't do it like this...
 		timeline.off("rangechanged");
 		timeline.off("mousewheel");
 		timeline.off("DOMMouseScroll");

@@ -20,27 +20,39 @@
 	<script type="text/javascript">
 
 	$(function()
-		{
+	{
 		var data = new vis.DataSet({});
-
 		var container = document.getElementById('visualization');
 
-		$.get("static/mustache/item.html", function(html)
-		{
-			var template = Handlebars.compile(html);
-			var options = 
+		$.when(
+			$.get("static/mustache/item.html"),
+			$.get("static/mustache/day.html"))
+			.then(function(item_html, day_html)
 			{
-				maxHeight: "250px",
-				minHeight: "250px",
-				clickToUse: false,
-				width: "95%",
-				stack: false,
-				template: template
-			};
-			var timeline = new vis.Timeline(container, data, options);
+				var templates =
+				{
+					item: Handlebars.compile(item_html[0]),
+					day: Handlebars.compile(day_html[0])
+				};
 
-			catcierge_events_updater("{{ hostname }}", timeline, data);
-		});
+				var options =
+				{
+					maxHeight: "250px",
+					minHeight: "250px",
+					clickToUse: false,
+					width: "95%",
+					stack: false,
+					template: function(item)
+					{
+						var template = templates[item.template];
+						return template(item);
+					}
+				};
+
+				var timeline = new vis.Timeline(container, data, options);
+
+				catcierge_events_updater("{{ hostname }}", timeline, data);
+			});
 	});
 	</script>
 

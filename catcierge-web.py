@@ -14,6 +14,7 @@ import signal
 import sys
 import logging
 import rethinkdb as r
+import arrow
 logger = logging.getLogger('catcierge-web')
 
 from tornado.options import define, options, parse_command_line
@@ -26,6 +27,7 @@ define("image_path", default=".", help="The path to the image root directory")
 define("rethinkdb_host", default="localhost", help="The rethinkdb hostname")
 define("rethinkdb_port", default=28015, help="The rethinkdb port")
 define("rethinkdb_database", default="catcierge", help="Name of the rethinkdb database to use")
+define("event_topic", default="event", help="The ZMQ topic for a catcierge event")
 
 clients = dict()
 	
@@ -98,6 +100,17 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 			except RqlDriverError as ex:
 				logger.error("Failed to connect to Rethinkdb: %s" % ex)
 
+	def rethinkdb_insert(self, req_msg):
+		"""
+		Inserts an event into RethinkDB.
+		"""
+
+		# Add timestamps in a format RethinkDB understands.
+		del req_msg["live"]
+		req_msg["timestamp"] = r.iso8601(req_msg["start"])
+		req_msg["timestamp_end"] = r.iso8601(req_msg["end"])
+		r.db("catcierge").table("events").insert(req_msg).run(self.rdb)
+
 	def simplify_json(self, msg):
 		"""
 		Gets rid of unused parts of the JSON that's there
@@ -126,8 +139,7 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 		#logger.info("ZMQ recv %s: %s" % (req_topic, req_msg_json))
 
-		# TODO: Enable setting IDs we listen for via command line...
-		if (req_topic == "event"):
+		if (req_topic == options.event_topic):
 
 			# Send to browser clients.
 			logger.info("Sending to websocket clients...")
@@ -135,12 +147,7 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 			# Save in database.
 			logger.info("Sending to database...")
-
-			# Add timestamps in a format RethinkDB understands.
-			del req_msg["live"]
-			req_msg["timestamp"] = r.iso8601(req_msg["start"])
-			req_msg["timestamp_end"] = r.iso8601(req_msg["end"])
-			r.db("catcierge").table("events").insert(req_msg).run(self.rdb)
+			self.rethinkdb_insert(req_msg)
 		else:
 			logger.info("DOING NOTHING, not listening to topic %s" % req_topic)
 
@@ -152,6 +159,8 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		clients[self.id] = {'id': self.id, 'object': self}
 
 		# Connect the ZMQ sub socket and Rethinkdb server on the first client.
+		# TODO: Move this from here. We should always receive ZMQ published
+		# data and push it to rethinkdb, not only when there's a websocket connection!
 		self.zmq_connect()
 		self.rethinkdb_connect()
 
@@ -164,21 +173,55 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		range = json.loads(message)
 		logger.info("WS %s: %s" % (self.id, json.dumps(range, indent=4)))
 
-		events = r.db("catcierge").table("events").filter(
-				r.row["timestamp"].during(
-					r.iso8601(range["start"]),
-					r.iso8601(range["end"]))
-			).run(self.rdb)
+		# Return different queries depending on the length of the time range.
+		timediff = arrow.get(range["end"]) - arrow.get(range["start"])
 
-		for doc in events:
-			# Delete these stupid date things we have the same info in start/end
-			# so that we can turn the document into JSON.
-			del doc["timestamp"]
-			del doc["timestamp_end"]
-			jdoc = json.dumps(doc, indent=4)
-			print("%s" % jdoc)
-			self.send_catcierge_event(jdoc)
+		if timediff.days >= 1:
+			logger.info("Time span more than 1 day %s" % timediff)
 
+			global_start = arrow.get(range["start"])
+			global_end = arrow.get(range["end"])
+
+			# Based on the timeline time range shown, split it up into days
+			# and get the number of events for each day.
+			for day in arrow.Arrow.span_range("day", global_start, global_end):
+				start = day[0].isoformat()
+				end = day[1].isoformat()
+
+				# For each day do a query and count.
+				num_events = r.db("catcierge").table("events").filter(
+						r.row["timestamp"].during(
+							r.iso8601(start),
+							r.iso8601(end))
+					).count().run(self.rdb)
+
+				if num_events == 0:
+					continue
+
+				event = {
+					"type": "day",
+					"start": start,
+					"end": end,
+					"count": num_events
+				}
+
+				self.send_catcierge_event(event)
+		# TODO: Add month aggregate...
+		else:
+			# Query RethinkDB for events in the given time range.
+			events = r.db("catcierge").table("events").filter(
+					r.row["timestamp"].during(
+						r.iso8601(range["start"]),
+						r.iso8601(range["end"]))
+				).run(self.rdb)
+
+			for doc in events:
+				# Delete these stupid date things we have the same info in start/end
+				# so that we can turn the document into JSON.
+				del doc["timestamp"]
+				del doc["timestamp_end"]
+				jdoc = json.dumps(doc, indent=4)
+				self.send_catcierge_event(jdoc)
 
 	def on_close(self):
 		"""
@@ -187,7 +230,9 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		if self.id in clients:
 			del clients[self.id]
 
+
 class Application(tornado.web.Application):
+	# TODO: Move ZMQ connection here?
 	def __init__(self):
 		print options.image_path
 		handlers = [
