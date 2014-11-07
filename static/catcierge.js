@@ -52,12 +52,38 @@ var catcierge_events_updater = function(hostname, timeline, data)
 
 		send_time_range = function(range)
 		{
-			// TODO: Only send this new range if the old one was smaller.
+			// TODO: Save the unix time epoch below in an interval tree.
+			// https://github.com/shinout/interval-tree
+			// http://en.wikipedia.org/wiki/Interval_tree
+			// https://github.com/toberndo/interval-query
+			// var itree = new IntervalTree(300); 
+			// itree.add([22, 56,  'foo']);
+			// itree.add([44, 199, 'bar']);
+			// 
+			// First query the tree with the range.
+			// If any other range is overlapping, remove those ranges from the interval
+			// tree and merge with them.
+			// http://stackoverflow.com/questions/14545695/merge-ranges-in-intervals
+			//
+			// One simple implementation is to simply use an array for the ranges
+			// and when inserting we merge right away.
+			//
+			// There is one interval tree for each aggregation level.
+			// - events (< 1 day)
+			// - days (> 1 day)
+			// - weeks (> 1 week)
+			// - months (> 3 months)
+			// - years (> 1 year)
+			console.log("Sending ", range.start.getTime(), range.end.getTime());
+
+
+
 			ws.send(JSON.stringify(
 			{
 				start: range.start.toISOString(),
-				end: range.end.toISOString()
-			}))
+				end: range.end.toISOString(),
+				exclude: timeline.getVisibleItems()
+			}));
 		};
 
 		// Get events for the initial time range.
@@ -118,7 +144,8 @@ var catcierge_events_updater = function(hostname, timeline, data)
 				content: m.description,
 				catcierge: m,
 				className: "alert-info",
-				template: "day"
+				template: "day",
+				type: "background"
 			};
 
 			data.update(catcierge_event);

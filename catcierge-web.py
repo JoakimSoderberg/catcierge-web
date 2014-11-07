@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
@@ -20,7 +22,7 @@ logger = logging.getLogger('catcierge-web')
 from tornado.options import define, options, parse_command_line
 
 define("http_port", default=8888, help="Run web server on the given port", type=int)
-define("zmq_port", default=5556, help="The port the catciege ZMQ publisher is listening on", type=int)
+define("zmq_port", default=5556, help="The port the catcierge ZMQ publisher is listening on", type=int)
 define("zmq_host", default="localhost", help="The host the catcierge ZMQ publisher is listening on")
 define("zmq_transport", default="tcp", help="The ZMQ transport to use to connect to the catcierge publisher. Possible options: inproc, ipc, tcp, tpic, multicast")
 define("image_path", default=".", help="The path to the image root directory")
@@ -28,6 +30,8 @@ define("rethinkdb_host", default="localhost", help="The rethinkdb hostname")
 define("rethinkdb_port", default=28015, help="The rethinkdb port")
 define("rethinkdb_database", default="catcierge", help="Name of the rethinkdb database to use")
 define("event_topic", default="event", help="The ZMQ topic for a catcierge event")
+define("docker", default=False, type=bool, help="If we're running inside of docker. Reads RethinkDB settings from dockers linked environment variables")
+define("docker_db_alias", default="db", help="The name of the Docker RethinkDB alias to get connection settings from")
 
 clients = dict()
 	
@@ -58,7 +62,13 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 	Websocket handler for pushing live events.
 	"""
 
+	def initialize(self):
+		logger.debug("Initializing Websocket Handler")
+		self.zmq_connect()
+		self.rethinkdb_connect()
+
 	def __del__(self):
+		print("Deleting websocket handler")
 		if hasattr(self, "zmq_stream"):
 			self.zmq_stream.close()
 
@@ -69,7 +79,6 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		"""
 		Sends a catcierge event over the websocket.
 		"""
-		# TODO: Enable sending a non-live event here (so the timeline doesn't focus on it)
 		self.write_message(msg)
 
 	def zmq_connect(self):
@@ -96,8 +105,8 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 			try:
 				self.rdb = r.connect(host=options.rethinkdb_host,
 									port=options.rethinkdb_port,
-									db="catcierge")
-			except RqlDriverError as ex:
+									db=options.rethinkdb_database)
+			except r.RqlDriverError as ex:
 				logger.error("Failed to connect to Rethinkdb: %s" % ex)
 
 	def rethinkdb_insert(self, req_msg):
@@ -158,12 +167,6 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		self.id = self.request.headers['Sec-Websocket-Key']
 		clients[self.id] = {'id': self.id, 'object': self}
 
-		# Connect the ZMQ sub socket and Rethinkdb server on the first client.
-		# TODO: Move this from here. We should always receive ZMQ published
-		# data and push it to rethinkdb, not only when there's a websocket connection!
-		self.zmq_connect()
-		self.rethinkdb_connect()
-
 		logger.info("Websocket Client CONNECTED %s with id: %s" % (self.request.remote_ip, self.id))
 
 	def on_message(self, message):
@@ -177,10 +180,12 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 		timediff = arrow.get(range["end"]) - arrow.get(range["start"])
 
 		if timediff.days >= 1:
-			logger.info("Time span more than 1 day %s" % timediff)
+			logger.info("Time span more than 1 day (%s - %s) %s" % (range["start"], range["end"], timediff))
 
 			global_start = arrow.get(range["start"])
 			global_end = arrow.get(range["end"])
+
+			events = []
 
 			# Based on the timeline time range shown, split it up into days
 			# and get the number of events for each day.
@@ -189,6 +194,8 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 				end = day[1].isoformat()
 
 				# For each day do a query and count.
+				# TODO: Make all this into one query?
+				# http://www.rethinkdb.com/docs/cookbook/python/#implementing-pagination
 				num_events = r.db("catcierge").table("events").filter(
 						r.row["timestamp"].during(
 							r.iso8601(start),
@@ -205,6 +212,9 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 					"count": num_events
 				}
 
+				events.append(event)
+
+			for event in events:
 				self.send_catcierge_event(event)
 		# TODO: Add month aggregate...
 		else:
@@ -232,9 +242,8 @@ class LiveEventsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 
 class Application(tornado.web.Application):
-	# TODO: Move ZMQ connection here?
+
 	def __init__(self):
-		print options.image_path
 		handlers = [
 			(r'/', IndexHandler),
 			(r'/ws/live/events', LiveEventsWebSocketHandler),
@@ -254,11 +263,32 @@ def main():
 	try:
 		tornado.options.parse_command_line()
 
+		if (options.docker):
+			# Translate the environment variables Docker creates
+			# when containers are linked to a Python dictionary.
+			from docker_links import parse_links
+			links = parse_links(os.environ)
+
+			logger.info("Docker mode (links):")
+			logger.info("\n%s" % json.dumps(links, indent=4))
+
+			# The user can specify another alias to look for.
+			if options.docker_db_alias not in links:
+				raise Exception('No Docker alias named "%s" found. Available:\n%s' \
+					% (options.docker_db_alias, "\n".join(links.keys())))
+
+			db = links[options.docker_db_alias]
+
+			options.rethinkdb_host = db["hostname"]
+
+		logger.info("Options:\n%s" % "\n".join(map(lambda x: \
+			"%25s: %s" % (x[0], x[1]), options.items())))
+
 		http_server = tornado.httpserver.HTTPServer(Application())
 		http_server.listen(options.http_port)
 		tornado.ioloop.IOLoop.instance().start()
 	except Exception as ex:
-		print("Error: %s" % ex)
+		logger.error("Error: %s" % ex)
 		exit(-1)
 
 if __name__ == "__main__":
