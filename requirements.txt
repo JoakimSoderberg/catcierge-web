@@ -8,3 +8,4 @@ tornado==4.0.2
 wsgiref==0.1.2
 arrow==0.4.2
 docker_links_python==0.1.0
+pillow==2.6.1

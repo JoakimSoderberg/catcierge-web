@@ -17,6 +17,7 @@ import sys
 import logging
 import rethinkdb as r
 import arrow
+from PIL import Image
 logger = logging.getLogger('catcierge-web')
 
 from tornado.options import define, options, parse_command_line
