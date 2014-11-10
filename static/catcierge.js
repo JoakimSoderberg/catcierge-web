@@ -1,4 +1,40 @@
 
+$(function()
+{
+	var data = new vis.DataSet({});
+	var container = document.getElementById('visualization');
+
+	$.when(
+		$.get("static/mustache/item.html"),
+		$.get("static/mustache/day.html"))
+		.then(function(item_html, day_html)
+		{
+			var templates =
+			{
+				item: Handlebars.compile(item_html[0]),
+				day: Handlebars.compile(day_html[0])
+			};
+
+			var options =
+			{
+				maxHeight: "250px",
+				minHeight: "250px",
+				clickToUse: false,
+				width: "95%",
+				stack: false,
+				template: function(item)
+				{
+					var template = templates[item.template];
+					return template(item);
+				}
+			};
+
+			var timeline = new vis.Timeline(container, data, options);
+
+			catcierge_events_updater(location.host, timeline, data);
+		});
+});
+
 Date.prototype.addHours = function(h)
 {
 	this.setTime(this.getTime() + (h * 60 * 60 * 1000)); 

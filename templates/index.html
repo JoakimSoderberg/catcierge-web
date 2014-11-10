@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=1024, initial-scale=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 
 	<title>Catcierge Timeline</title>
 
@@ -17,44 +17,6 @@
 	<script src="static/vis/dist/vis.min.js"></script>
 	<script src="static/js/handlebars-v2.0.0.js"></script>
 	<script src="static/catcierge.js"></script>
-	<script type="text/javascript">
-
-	$(function()
-	{
-		var data = new vis.DataSet({});
-		var container = document.getElementById('visualization');
-
-		$.when(
-			$.get("static/mustache/item.html"),
-			$.get("static/mustache/day.html"))
-			.then(function(item_html, day_html)
-			{
-				var templates =
-				{
-					item: Handlebars.compile(item_html[0]),
-					day: Handlebars.compile(day_html[0])
-				};
-
-				var options =
-				{
-					maxHeight: "250px",
-					minHeight: "250px",
-					clickToUse: false,
-					width: "95%",
-					stack: false,
-					template: function(item)
-					{
-						var template = templates[item.template];
-						return template(item);
-					}
-				};
-
-				var timeline = new vis.Timeline(container, data, options);
-
-				catcierge_events_updater("{{ hostname }}", timeline, data);
-			});
-	});
-	</script>
 
 	<!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
 	<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
