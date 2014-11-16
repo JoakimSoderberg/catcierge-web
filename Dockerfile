@@ -18,28 +18,50 @@ RUN mkdir -p /home/tornado/catcierge-web
 VOLUME /home/tornado/catcierge-images
 WORKDIR /home/tornado/catcierge-web
 
-RUN apt-get update
+#
+# Debian packages:
+#
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C7917B12
+RUN echo deb http://ppa.launchpad.net/chris-lea/node.js/ubuntu trusty main > /etc/apt/sources.list.d/nodejs.list
+#RUN add-apt-repository ppa:chris-lea/node.js
+RUN apt-get -y update
+RUN apt-get -y upgrade
+RUN apt-get -y dist-upgrade
 RUN	apt-get install -y \
-		nodejs \
+		build-essential \
 		python2.7 \
 		python2.7-dev \
 		python-pip \
-		libzmq-dev
+		libzmq-dev \
+		nodejs \
+		git
 
+#
+# Pip packages (Python):
+#
 ADD ./requirements.txt /home/tornado/catcierge-web/requirements.txt
-
 RUN pip install -r requirements.txt
 
-ADD . /home/tornado/catcierge-web
+#
+# npm packages (javascript modules):
+#
+ADD ./package.json /home/tornado/catcierge-web/package.json
+RUN npm install -g
+RUN npm install -g bower
 
+RUN chown -R tornado: /home/tornado/
 USER tornado
 
-# TODO: 
-# * How to set ZMQ-host/port?
-# * How to connect to Rethinkdb using the link vars?
-# * Make the entrypoint a script.
-#   http://mike-clarke.com/2013/11/docker-links-and-runtime-env-vars/
-# * Add --zmq_uri as cmdline switch in catcierge-web.py
-# * Maybe use this https://www.npmjs.org/package/docker-links
+#
+# Bower packages (css/frontend):
+#
+RUN mkdir -p /home/tornado/catcierge-web/bower_components
+ADD ./bower.json /home/tornado/catcierge-web/bower.json
+RUN bower install
+
+#
+# Add the rest of the sources.
+#
+ADD . /home/tornado/catcierge-web
 
 ENTRYPOINT ["python", "catcierge-web.py", "--docker", "--image_path=/home/tornado/catcierge-images"]
