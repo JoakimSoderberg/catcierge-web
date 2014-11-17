@@ -3,5 +3,15 @@
   "dependencies": {
     "bootstrap": "~3.2.0",
     "fontawesome": "~4.2.0"
+  },
+  "overrides": {
+    "bootstrap": {
+      "main": [
+        "less/mixins/*",
+        "less/!(variables).less",
+        "dist/fonts/*",
+        "dist/js/*"
+      ]
+    }
   }
 }

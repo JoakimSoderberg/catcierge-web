@@ -4,9 +4,12 @@
   "description": "Catcierge Web Server",
   "main": "index.js",
   "dependencies": {
-    "gulp": "~3.8.10"
+    "gulp": "~3.8.10",
+    "gulp-less": "~1.3.6"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "main-bower-files": "~2.4.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
