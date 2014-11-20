@@ -2,7 +2,9 @@
   "name": "catcierge-web",
   "dependencies": {
     "bootstrap": "~3.2.0",
-    "fontawesome": "~4.2.0"
+    "fontawesome": "~4.2.0",
+    "vis": "~3.7.0",
+    "handlebars.js": "~2.0.0"
   },
   "overrides": {
     "bootstrap": {
@@ -11,6 +13,12 @@
         "less/!(variables).less",
         "dist/fonts/*",
         "dist/js/*"
+      ]
+    },
+    "handlebars.js": {
+      "main": [
+        "lib/handlebars.js",
+        "lib/handlebars.runtime.js"
       ]
     }
   }

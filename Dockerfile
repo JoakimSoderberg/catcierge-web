@@ -49,15 +49,12 @@ ADD ./package.json /home/tornado/catcierge-web/package.json
 RUN npm install -g
 RUN npm install -g bower
 
-RUN chown -R tornado: /home/tornado/
-USER tornado
-
 #
 # Bower packages (css/frontend):
 #
 RUN mkdir -p /home/tornado/catcierge-web/bower_components
 ADD ./bower.json /home/tornado/catcierge-web/bower.json
-RUN bower install
+RUN bower install --allow-root
 
 #
 # Add the rest of the sources.
@@ -68,5 +65,8 @@ ADD . /home/tornado/catcierge-web
 # Compile less files to css.
 #
 RUN $(npm bin)/gulp
+
+RUN chown -R tornado: /home/tornado/
+USER tornado
 
 ENTRYPOINT ["python", "catcierge-web.py", "--docker", "--image_path=/home/tornado/catcierge-images"]
