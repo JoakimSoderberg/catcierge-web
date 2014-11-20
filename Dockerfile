@@ -64,4 +64,9 @@ RUN bower install
 #
 ADD . /home/tornado/catcierge-web
 
+#
+# Compile less files to css.
+#
+RUN $(npm bin)/gulp
+
 ENTRYPOINT ["python", "catcierge-web.py", "--docker", "--image_path=/home/tornado/catcierge-images"]

@@ -2,11 +2,6 @@ var gulp = require("gulp");
 var less = require("gulp-less");
 var path = require("path");
 
-gulp.task("default", function()
-{
-	// TODO: What?
-});
-
 // This will read your bower.json, iterate through your
 // dependencies and returns an array of files defined in
 // the main property of the packages bower.json.
@@ -38,20 +33,16 @@ gulp.task("bootstrap:less", ["bootstrap:prepareless"], function()
 		.pipe(gulp.dest("static/lib/bootstrap/dist/css"));
 });
 
-// TODO: Is this how I should do this?
-// Copy catcierge less sources.
-gulp.task("catcierge:prepareless", function()
-{
-	return gulp.src("less/*.less")
-		.pipe(gulp.dest("static/less/"));
-});
-
 // Compile catcierge less sources.
-gulp.task("catcierge:less", ["catcierge:prepareless"], function()
+gulp.task("catcierge:less", function()
 {
 	return gulp.src(["static/*.less"])
 		.pipe(less())
 		.pipe(gulp.dest("static/css"));
+});
+
+gulp.task("default", ["bootstrap:less", "catcierge:less"], function()
+{
 });
 
 gulp.task("watch", function()
