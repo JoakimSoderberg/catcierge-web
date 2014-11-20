@@ -36,7 +36,7 @@ gulp.task("bootstrap:less", ["bootstrap:prepareless"], function()
 // Compile catcierge less sources.
 gulp.task("catcierge:less", function()
 {
-	return gulp.src(["static/*.less"])
+	return gulp.src(["less/*.less"])
 		.pipe(less())
 		.pipe(gulp.dest("static/css"));
 });
